@@ -19,15 +19,15 @@
 */
 
 ///////// uncomment the below line to enable the function ////////////////
-//#define FIVEBUTTONS
-#define DEBUG
+#define FIVEBUTTONS
+//#define DEBUG
 //#define DEBUG_QUEUE
-//#define PUSH_ON_OFF
-//#define STARTUP_SOUND
+#define PUSH_ON_OFF
+#define STARTUP_SOUND
 //#define SPEAKER_SWITCH
 //#define ROTARY_ENCODER
 //#define ROTARY_SWITCH
-//#define POWER_ON_LED
+#define POWER_ON_LED
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef ROTARY_ENCODER
@@ -35,7 +35,7 @@
 #include <ClickEncoder.h>
 #endif
 
-///////// conifguration of the input and output pin //////////////////////
+///////// configuration of the input and output pin //////////////////////
 #define buttonPause A0 //Default A0; Pocket A2
 #define buttonUp A1 //Default A1; Pocket A0
 #define buttonDown A2 //Default A2; Pocket A1
@@ -46,8 +46,8 @@
 #define openAnalogPin A7 //Default A7
 
 #ifdef FIVEBUTTONS
-#define buttonFourPin A3
-#define buttonFivePin A4
+#define buttonFourPin A4
+#define buttonFivePin A3
 #endif
 
 #define LONG_PRESS 1000
@@ -59,7 +59,9 @@
 #endif
 
 #ifdef POWER_ON_LED
-#define PowerOnLEDPin 6
+// 5=red; 6=green
+#define StatusLEDRedPin 5
+#define StatusLEDGreenPin 6
 #endif
 
 #ifdef ROTARY_ENCODER
@@ -187,7 +189,7 @@ typedef enum Enum_AdminMenuOptions
   ResetCard = 1,
   MaxVolume = 2,
   MinVolume = 3,
-  InitVolume = 4,
+  InitVolume = 6,
   EQ = 5,
   CreateModifier = 6,
   SetupShortCuts = 7,
@@ -207,6 +209,12 @@ typedef enum Enum_PCS {
 };
 
 //////////////////////////////////////////////////////////////////////////
+
+
+///////// LED ////////////////////////////////////////////////////
+const uint8_t ledMaxBrightness = 1;
+//////////////////////////////////////////////////////////////////////////
+
 
 ///////// card cookie ////////////////////////////////////////////////////
 static const uint32_t cardCookie = 322417479;
@@ -429,10 +437,10 @@ void resetSettings() {
   mySettings.version = 2;
   mySettings.maxVolume = 25;
   mySettings.minVolume = 1;
-  mySettings.initVolume = 8;
-  mySettings.eq = 1;
+  mySettings.initVolume = 13;
+  mySettings.eq = 5;
   mySettings.locked = false;
-  mySettings.standbyTimer = 0;
+  mySettings.standbyTimer = 5;
   mySettings.invertVolumeButtons = true;
   mySettings.shortCuts[0].folder = 0;
   mySettings.shortCuts[1].folder = 0;
@@ -1474,8 +1482,22 @@ void waitForTrackToFinish() {
     mp3.loop();
   } while (isPlaying());
 }
+
+// Play LastCard
+bool setupPlayShortcut(folderSettings * theFolder) {
+  theFolder->folder = EEPROM.read(201);
+  theFolder->mode = EEPROM.read(202);
+  theFolder->special = EEPROM.read(203);
+#ifdef DEBUG
+    Serial.println(F("setupPlayShortcut:"));
+    Serial.println(theFolder->folder);
+    Serial.println(theFolder->mode);
+    Serial.println(theFolder->special);
+#endif
+}
 //////////////////////////////////////////////////////////////////////////
 void setup() {
+#ifdef DEBUG
   Serial.begin(115200); // Es gibt ein paar Debug Ausgaben über die serielle Schnittstelle
   // Dieser Hinweis darf nicht entfernt werden
   //  Serial.println(F("\n _____         _____ _____ _____ _____"));
@@ -1486,7 +1508,7 @@ void setup() {
   Serial.println(F("created by Thorsten Voß and licensed under GNU/GPL."));
   Serial.println(F("Information and contribution at https://tonuino.de.\n"));
   Serial.println(F("Fork by Marco Schulz"));
-
+#endif
   analogReference(DEFAULT);
 
   // Busy Pin
@@ -1529,8 +1551,9 @@ void setup() {
 #endif
 
 #ifdef POWER_ON_LED
-  pinMode(PowerOnLEDPin, OUTPUT);
-  digitalWrite(PowerOnLEDPin, LOW);
+  pinMode(StatusLEDRedPin, OUTPUT);
+  digitalWrite(StatusLEDGreenPin, LOW);
+  analogWrite(StatusLEDRedPin, ledMaxBrightness);
 #endif
 
   //#ifdef CHECK_BATTERY
@@ -1605,7 +1628,9 @@ void setup() {
 #endif
 
 #ifdef POWER_ON_LED
-  digitalWrite(PowerOnLEDPin, HIGH);
+  // digitalWrite(StatusLEDRedPin, HIGH);
+  digitalWrite(StatusLEDRedPin, LOW);
+  analogWrite(StatusLEDGreenPin, ledMaxBrightness);
 #endif
 
 
@@ -1646,6 +1671,12 @@ void volumeUpButton() {
   if (volume < mySettings.maxVolume) {
     mp3.increaseVolume();
     volume++;
+  } else {
+    digitalWrite(StatusLEDGreenPin, LOW);
+    analogWrite(StatusLEDRedPin, ledMaxBrightness);
+    delay(400);
+    digitalWrite(StatusLEDRedPin, LOW);
+    analogWrite(StatusLEDGreenPin, ledMaxBrightness);
   }
 #ifdef DEBUG
   Serial.print(F("volume Up: "));
@@ -1666,6 +1697,12 @@ void volumeDownButton() {
   if (volume > mySettings.minVolume) {
     mp3.decreaseVolume();
     volume--;
+  } else {
+    digitalWrite(StatusLEDGreenPin, LOW);
+    analogWrite(StatusLEDRedPin, ledMaxBrightness);
+    delay(400);
+    digitalWrite(StatusLEDRedPin, LOW);
+    analogWrite(StatusLEDGreenPin, ledMaxBrightness);
   }
 #ifdef DEBUG
   Serial.print(F("volume Down: "));
@@ -1840,7 +1877,13 @@ void playFolder() {
     }
   }
 
-  
+  // Play LastCard: update EEPROM
+  EEPROM.update(201, myFolder->folder);
+  EEPROM.update(202, myFolder->mode);
+  EEPROM.update(203, myFolder->special);
+#ifdef DEBUG
+    Serial.println("Update EEPROM for Play LastCard");
+#endif
 }
 //////////////////////////////////////////////////////////////////////////
 void playShortCut(uint8_t shortCut) {
@@ -1856,6 +1899,14 @@ void playShortCut(uint8_t shortCut) {
       return;
     }
   }
+  // last card shortcut
+  if (shortCut == 0) {
+    setupPlayShortcut(&mySettings.shortCuts[0]);    //LastCard auf Play legen 
+#ifdef DEBUG
+    Serial.println(F("Shortcut Play LastCard configured!")); 
+#endif
+  } 
+
   if (mySettings.shortCuts[shortCut].folder != 0) {
     myFolder = &mySettings.shortCuts[shortCut];
     playFolder();
@@ -1917,16 +1968,17 @@ void loop() {
         return;
       }
     }
-    if (ignorePauseButton == false)
-
+    if (ignorePauseButton == false) {
       if (isPlaying()) {
         mp3.pause();
         setstandbyTimer();
-      }
-      else if (knownCard) {
+      } else if (knownCard) {
         mp3.start();
         disablestandbyTimer();
+      } else {
+        playShortCut(0);
       }
+    }
     ignorePauseButton = false;
   }
 #ifdef PUSH_ON_OFF
@@ -2096,6 +2148,8 @@ void adminMenu(bool fromCard = false) {
 #ifdef DEBUG
   Serial.println(F("adminMenu"));
 #endif
+  digitalWrite(StatusLEDGreenPin, LOW);
+  analogWrite(StatusLEDRedPin, ledMaxBrightness);
   knownCard = false;
   if (fromCard == false) {
     // Admin menu has been locked - it still can be trigged via admin card
@@ -2140,14 +2194,20 @@ void adminMenu(bool fromCard = false) {
 #ifdef DEBUG
       Serial.println(c);
 #endif
-      if (voiceMenu(255, 0, 0, false) != c)
+      if (voiceMenu(255, 0, 0, false) != c) {
+        digitalWrite(StatusLEDRedPin, LOW);
+        analogWrite(StatusLEDGreenPin, ledMaxBrightness);
         return;
+      }
     }
   }
 
   int subMenu = voiceMenu(14, 900, 900, false, false, 0, true);
-  if (subMenu == Exit)
+  if (subMenu == Exit) {
+    digitalWrite(StatusLEDRedPin, LOW);
+    analogWrite(StatusLEDGreenPin, ledMaxBrightness);
     return;
+  }
   if (subMenu == ResetCard) {
     resetCard();
     mfrc522.PICC_HaltA();
@@ -2185,6 +2245,9 @@ void adminMenu(bool fromCard = false) {
           Serial.println(F("abort"));
 #endif
           mp3.playMp3FolderTrack(802);
+
+          digitalWrite(StatusLEDRedPin, LOW);
+          analogWrite(StatusLEDGreenPin, ledMaxBrightness);
           return;
         }
       } while (!mfrc522.PICC_IsNewCardPresent());
@@ -2245,6 +2308,9 @@ void adminMenu(bool fromCard = false) {
           Serial.println(F("abort!"));
 #endif
           mp3.playMp3FolderTrack(802);
+      
+          digitalWrite(StatusLEDRedPin, LOW);
+          analogWrite(StatusLEDGreenPin, ledMaxBrightness);
           return;
         }
       } while (!mfrc522.PICC_IsNewCardPresent());
@@ -2337,6 +2403,8 @@ void adminMenu(bool fromCard = false) {
   }
   writeSettingsToFlash();
   setstandbyTimer();
+  digitalWrite(StatusLEDRedPin, LOW);
+  analogWrite(StatusLEDGreenPin, ledMaxBrightness);
 }
 //////////////////////////////////////////////////////////////////////////
 bool askCode(uint8_t *code) {
@@ -2533,6 +2601,9 @@ bool setupFolder(folderSettings * theFolder) {
 }
 //////////////////////////////////////////////////////////////////////////
 void setupCard() {
+  digitalWrite(StatusLEDGreenPin, LOW);
+  analogWrite(StatusLEDRedPin, ledMaxBrightness);
+
   mp3.pause();
 #ifdef DEBUG
   Serial.println(F("setupCard"));
@@ -2548,6 +2619,8 @@ void setupCard() {
     writeCard(newCard);
   }
   delay(1000);
+  digitalWrite(StatusLEDRedPin, LOW);
+  analogWrite(StatusLEDGreenPin, ledMaxBrightness);
 }
 
 bool readCard(nfcTagObject * nfcTag) {
@@ -3250,6 +3323,8 @@ void onNewCard() {
 
   // Neue Karte konfigurieren
   else if (myCard.cookie != cardCookie) {
+    digitalWrite(StatusLEDGreenPin, LOW);
+    analogWrite(StatusLEDRedPin, ledMaxBrightness);
     mp3.playMp3FolderTrack(300);
     waitForTrackToFinish();
     setupCard();
@@ -3321,7 +3396,8 @@ mp3.pause();
 #endif
 
 #ifdef POWER_ON_LED
-  digitalWrite(PowerOnLEDPin, LOW);
+  digitalWrite(StatusLEDRedPin, LOW);
+  digitalWrite(StatusLEDGreenPin, LOW);
 #endif
 
   delay(500);
