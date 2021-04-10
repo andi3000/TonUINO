@@ -7,7 +7,6 @@
 #include <MFRC522.h>
 #include <avr/sleep.h>
 
-
 /*
    _____         _____ _____ _____ _____
   |_   _|___ ___|  |  |     |   | |     |
@@ -34,8 +33,8 @@
 //////////////////////////////////////////////////////////////////////////
 
 #ifdef ROTARY_ENCODER
-#include <ClickEncoder.h>
 #include <TimerOne.h>
+#include <ClickEncoder.h>
 #endif
 
 ///////// configuration of the input and output pin //////////////////////
@@ -97,16 +96,16 @@
 #define ROTARY_SWITCH_POSITIONS 12
 #define ROTARY_SWITCH_TOLERNACE 0.15
 #define ROTARY_SWITCH_REF_VOLTAGE 5.0
-#define ROTARY_SWITCH_STEP_MIN ((ROTARY_SWITCH_REF_VOLTAGE / ROTARY_SWITCH_POSITIONS) - ((ROTARY_SWITCH_REF_VOLTAGE / ROTARY_SWITCH_POSITIONS) * ROTARY_SWITCH_TOLERNACE))
-#define ROTARY_SWITCH_STEP_MAX ((ROTARY_SWITCH_REF_VOLTAGE / ROTARY_SWITCH_POSITIONS) + ((ROTARY_SWITCH_REF_VOLTAGE / ROTARY_SWITCH_POSITIONS) * ROTARY_SWITCH_TOLERNACE))
+#define ROTARY_SWITCH_STEP_MIN ((ROTARY_SWITCH_REF_VOLTAGE/ROTARY_SWITCH_POSITIONS) - ((ROTARY_SWITCH_REF_VOLTAGE/ROTARY_SWITCH_POSITIONS)*ROTARY_SWITCH_TOLERNACE))
+#define ROTARY_SWITCH_STEP_MAX ((ROTARY_SWITCH_REF_VOLTAGE/ROTARY_SWITCH_POSITIONS) + ((ROTARY_SWITCH_REF_VOLTAGE/ROTARY_SWITCH_POSITIONS)*ROTARY_SWITCH_TOLERNACE))
 #define ROTARY_SWITCH_TRIGGER_TIME 2000
 #endif
 //////////////////////////////////////////////////////////////////////////
 
 ///////// MFRC522 ////////////////////////////////////////////////////////
-#define RST_PIN 9                  // Configurable, see typical pin layout above
-#define SS_PIN 10                  // Configurable, see typical pin layout above
-MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522
+#define RST_PIN 9                 // Configurable, see typical pin layout above
+#define SS_PIN 10                 // Configurable, see typical pin layout above
+MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522
 MFRC522::MIFARE_Key key;
 bool successRead;
 byte sector = 1;
@@ -221,7 +220,7 @@ static const uint32_t cardCookie = 322417479;
 //////////////////////////////////////////////////////////////////////////
 
 ///////// DFPlayer Mini //////////////////////////////////////////////////
-SoftwareSerial mySoftwareSerial(2, 3);  // RX, TX
+SoftwareSerial mySoftwareSerial(2, 3); // RX, TX
 uint16_t numTracksInFolder;
 uint16_t currentTrack;
 uint16_t firstTrack;
